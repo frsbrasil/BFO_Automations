@@ -1,0 +1,15 @@
+# Secure credentials and keys
+credentials/
+.env
+.env.local
+.env.development
+.env.production
+.env.staging
+
+# Operational logs
+logs/
+*.log
+npm-debug.log*
+
+# Node modules
+node_modules/
