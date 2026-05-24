@@ -1,0 +1,249 @@
+{
+  "name": "BFO - Google Sheets 2-Way CRM Sync Workflow",
+  "nodes": [
+    {
+      "parameters": {
+        "event": "rowAdded",
+        "documentId": "YOUR_GOOGLE_SHEET_DOCUMENT_ID",
+        "sheetName": "Client Pipeline",
+        "options": {}
+      },
+      "id": "sheet-trigger-node",
+      "name": "Google Sheet Edits Trigger",
+      "type": "n8n-nodes-base.googleSheetsTrigger",
+      "typeVersion": 1,
+      "position": [
+        250,
+        500
+      ],
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "google-sheets-credential-placeholder"
+        }
+      },
+      "disabled": true,
+      "notes": "Enable this to listen for updates or notes made by Beto directly inside Google Sheets on-site, syncing them back to Supabase"
+    },
+    {
+      "parameters": {
+        "operation": "update",
+        "tableId": "leads",
+        "id": "={{ $json.id }}",
+        "fieldsUi": {
+          "fieldValues": [
+            {
+              "fieldId": "status",
+              "fieldValue": "={{ $json.status }}"
+            },
+            {
+              "fieldId": "notes",
+              "fieldValue": "={{ $json.notes }}"
+            }
+          ]
+        }
+      },
+      "id": "supabase-update-from-sheet",
+      "name": "Update Supabase leads",
+      "type": "n8n-nodes-base.supabase",
+      "typeVersion": 1,
+      "position": [
+        500,
+        500
+      ],
+      "credentials": {
+        "supabaseApi": {
+          "id": "supabase-credential-placeholder"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "pollTimes": {
+          "item": [
+            {
+              "mode": "everyMinute"
+            }
+          ]
+        }
+      },
+      "id": "supabase-poll-trigger",
+      "name": "Poll New DB Leads",
+      "type": "n8n-nodes-base.cron",
+      "typeVersion": 1.1,
+      "position": [
+        250,
+        250
+      ],
+      "notes": "Check Supabase leads table every minute for unsynced entries (alternatively, use a Database Webhook in Supabase)"
+    },
+    {
+      "parameters": {
+        "operation": "get",
+        "tableId": "leads",
+        "filters": {
+          "conditions": [
+            {
+              "keyName": "status",
+              "keyValue": "new"
+            }
+          ]
+        }
+      },
+      "id": "supabase-fetch-new-node",
+      "name": "Fetch 'New' Leads",
+      "type": "n8n-nodes-base.supabase",
+      "typeVersion": 1,
+      "position": [
+        480,
+        250
+      ],
+      "credentials": {
+        "supabaseApi": {
+          "id": "supabase-credential-placeholder"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "append",
+        "documentId": "YOUR_GOOGLE_SHEET_DOCUMENT_ID",
+        "sheetName": "Client Pipeline",
+        "options": {},
+        "fieldsUi": {
+          "fieldValues": [
+            {
+              "fieldId": "id",
+              "fieldValue": "={{ $json.id }}"
+            },
+            {
+              "fieldId": "created_at",
+              "fieldValue": "={{ $json.created_at }}"
+            },
+            {
+              "fieldId": "name",
+              "fieldValue": "={{ $json.name }}"
+            },
+            {
+              "fieldId": "phone",
+              "fieldValue": "={{ $json.phone }}"
+            },
+            {
+              "fieldId": "email",
+              "fieldValue": "={{ $json.email }}"
+            },
+            {
+              "fieldId": "service",
+              "fieldValue": "={{ $json.service_raw }}"
+            },
+            {
+              "fieldId": "message",
+              "fieldValue": "={{ $json.message }}"
+            },
+            {
+              "fieldId": "language",
+              "fieldValue": "={{ $json.language }}"
+            },
+            {
+              "fieldId": "status",
+              "fieldValue": "={{ $json.status }}"
+            },
+            {
+              "fieldId": "notes",
+              "fieldValue": "={{ $json.notes || '' }}"
+            }
+          ]
+        }
+      },
+      "id": "google-sheets-append-node",
+      "name": "Append Row in Sheet",
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.1,
+      "position": [
+        720,
+        250
+      ],
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "google-sheets-credential-placeholder"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "update",
+        "tableId": "leads",
+        "id": "={{ $('supabase-fetch-new-node').item.json.id }}",
+        "fieldsUi": {
+          "fieldValues": [
+            {
+              "fieldId": "status",
+              "fieldValue": "contacted"
+            }
+          ]
+        }
+      },
+      "id": "supabase-mark-contacted-node",
+      "name": "Mark 'Contacted' in DB",
+      "type": "n8n-nodes-base.supabase",
+      "typeVersion": 1,
+      "position": [
+        950,
+        250
+      ],
+      "credentials": {
+        "supabaseApi": {
+          "id": "supabase-credential-placeholder"
+        }
+      }
+    }
+  ],
+  "connections": {
+    "Google Sheet Edits Trigger": {
+      "main": [
+        [
+          {
+            "node": "Update Supabase leads",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Poll New DB Leads": {
+      "main": [
+        [
+          {
+            "node": "Fetch 'New' Leads",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Fetch 'New' Leads": {
+      "main": [
+        [
+          {
+            "node": "Append Row in Sheet",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Append Row in Sheet": {
+      "main": [
+        [
+          {
+            "node": "Mark 'Contacted' in DB",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": true,
+  "settings": {},
+  "id": "bfo-google-sheets-crm-sync"
+}

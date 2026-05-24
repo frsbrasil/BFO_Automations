@@ -1,0 +1,328 @@
+{
+  "name": "BFO - Website Lead Webhook & Mobile Notification Router",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "bfo-website-lead",
+        "responseMode": "responseNode",
+        "options": {}
+      },
+      "id": "webhook-trigger-node",
+      "name": "Vite Form Webhook",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 1,
+      "position": [
+        250,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "respondWith": "text",
+        "responseBody": "{\"status\":\"success\",\"message\":\"Lead successfully processed and logged.\"}",
+        "options": {
+          "responseHeaders": {
+            "entries": [
+              {
+                "name": "Access-Control-Allow-Origin",
+                "value": "*"
+              }
+            ]
+          }
+        }
+      },
+      "id": "webhook-response-node",
+      "name": "Respond Web 200 OK",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1,
+      "position": [
+        450,
+        150
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "insert",
+        "tableId": "leads",
+        "fieldsUi": {
+          "fieldValues": [
+            {
+              "fieldId": "name",
+              "fieldValue": "={{ $json.body.name }}"
+            },
+            {
+              "fieldId": "email",
+              "fieldValue": "={{ $json.body.email }}"
+            },
+            {
+              "fieldId": "phone",
+              "fieldValue": "={{ $json.body.phone }}"
+            },
+            {
+              "fieldId": "service_raw",
+              "fieldValue": "={{ $json.body.service }}"
+            },
+            {
+              "fieldId": "message",
+              "fieldValue": "={{ $json.body.message }}"
+            },
+            {
+              "fieldId": "source",
+              "fieldValue": "website"
+            },
+            {
+              "fieldId": "language",
+              "fieldValue": "={{ $json.body.language || 'en' }}"
+            }
+          ]
+        }
+      },
+      "id": "supabase-insert-node",
+      "name": "Log to Supabase leads",
+      "type": "n8n-nodes-base.supabase",
+      "typeVersion": 1,
+      "position": [
+        480,
+        300
+      ],
+      "credentials": {
+        "supabaseApi": {
+          "id": "supabase-credential-placeholder"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "dataType": "string",
+        "value1": "={{ $json.language }}",
+        "rules": {
+          "rules": [
+            {
+              "value2": "pt",
+              "output": 1
+            }
+          ]
+        },
+        "fallbackOutput": 0
+      },
+      "id": "language-switch-node",
+      "name": "Bilingual Routing",
+      "type": "n8n-nodes-base.switch",
+      "typeVersion": 1,
+      "position": [
+        700,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://api.z-api.io/instances/YOUR_INSTANCE_ID/token/YOUR_TOKEN/send-text",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"phone\": \"{{ $('supabase-insert-node').item.json.phone }}\",\n  \"message\": \"Olá {{ $('supabase-insert-node').item.json.name }}! 👋 Obrigado por entrar em contato com a B.F.O Property Maintenance.\\n\\nO Beto já recebeu o seu pedido sobre '{{ $('supabase-insert-node').item.json.service_raw }}'. Ele está em atendimento de campo no momento, mas analisará os detalhes em breve. Enviamos um resumo para o seu e-mail ({{ $('supabase-insert-node').item.json.email }}). 😊🙏\"\n}",
+        "options": {}
+      },
+      "id": "zapi-pt-client-node",
+      "name": "WhatsApp Secretary (PT)",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.1,
+      "position": [
+        920,
+        200
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://api.z-api.io/instances/YOUR_INSTANCE_ID/token/YOUR_TOKEN/send-text",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"phone\": \"{{ $('supabase-insert-node').item.json.phone }}\",\n  \"message\": \"Hello {{ $('supabase-insert-node').item.json.name }}! 👋 Thank you for contacting B.F.O Property Maintenance.\\n\\nBeto has received your request regarding '{{ $('supabase-insert-node').item.json.service_raw }}'. He is currently on-site but will review your details shortly. We have also sent a detailed summary to your email ({{ $('supabase-insert-node').item.json.email }}). 😊🙏\"\n}",
+        "options": {}
+      },
+      "id": "zapi-en-client-node",
+      "name": "WhatsApp Secretary (EN)",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.1,
+      "position": [
+        920,
+        400
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://api.resend.com/emails",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendHeaders": true,
+        "headersUi": {
+          "parameter": [
+            {
+              "name": "Authorization",
+              "value": "Bearer re_YOUR_RESEND_API_KEY"
+            },
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"from\": \"B.F.O Property Maintenance <hello@bfopropertymaintenance.co.uk>\",\n  \"to\": [\"{{ $('supabase-insert-node').item.json.email }}\"],\n  \"subject\": \"We've received your request! | Recebemos o seu contato!\",\n  \"html\": \"<div style='font-family: sans-serif; padding: 20px; color: #1F2937;'><h2 style='color: #D4AF37;'>B.F.O Property Maintenance</h2><p>Hello <strong>{{ $('supabase-insert-node').item.json.name }}</strong>,</p><p>Beto has received your message regarding: <strong>{{ $('supabase-insert-node').item.json.service_raw }}</strong>.</p><p>We will review your details and get back to you shortly with a free, no-obligation quote.</p><hr style='border: 0; border-top: 1px solid #E5E7EB; margin: 20px 0;' /><p style='font-size: 12px; color: #9CA3AF;'>B.F.O Property Maintenance, Ely, Cambridgeshire.</p></div>\"\n}",
+        "options": {}
+      },
+      "id": "resend-email-node",
+      "name": "Resend Branded Email",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.1,
+      "position": [
+        1180,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://api.z-api.io/instances/YOUR_INSTANCE_ID/token/YOUR_TOKEN/send-text",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"phone\": \"BETO_MOBILE_NUMBER_HERE\",\n  \"message\": \"🚨 *NEW BFO WEB LEAD!*\\n\\n👤 *Name*: {{ $('supabase-insert-node').item.json.name }}\\n📞 *Phone*: {{ $('supabase-insert-node').item.json.phone }}\\n✉️ *Email*: {{ $('supabase-insert-node').item.json.email }}\\n🪚 *Service*: {{ $('supabase-insert-node').item.json.service_raw }}\\n💬 *Message*: {{ $('supabase-insert-node').item.json.message }}\\n🌐 *Language*: {{ $('supabase-insert-node').item.json.language }}\\n\\n👉 *Click to Call Instantly*:\\nhttps://wa.me/{{ $('supabase-insert-node').item.json.phone }}\"\n}",
+        "options": {}
+      },
+      "id": "zapi-beto-alert-node",
+      "name": "Alert Beto on WhatsApp",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.1,
+      "position": [
+        1380,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "update",
+        "tableId": "leads",
+        "id": "={{ $('supabase-insert-node').item.json.id }}",
+        "fieldsUi": {
+          "fieldValues": [
+            {
+              "fieldId": "beto_notified",
+              "fieldValue": "true"
+            }
+          ]
+        }
+      },
+      "id": "supabase-update-notified",
+      "name": "Mark Notified in DB",
+      "type": "n8n-nodes-base.supabase",
+      "typeVersion": 1,
+      "position": [
+        1580,
+        300
+      ],
+      "credentials": {
+        "supabaseApi": {
+          "id": "supabase-credential-placeholder"
+        }
+      }
+    }
+  ],
+  "connections": {
+    "Vite Form Webhook": {
+      "main": [
+        [
+          {
+            "node": "Respond Web 200 OK",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Log to Supabase leads",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Log to Supabase leads": {
+      "main": [
+        [
+          {
+            "node": "Bilingual Routing",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Bilingual Routing": {
+      "main": [
+        [
+          {
+            "node": "WhatsApp Secretary (EN)",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "WhatsApp Secretary (PT)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "WhatsApp Secretary (EN)": {
+      "main": [
+        [
+          {
+            "node": "Resend Branded Email",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "WhatsApp Secretary (PT)": {
+      "main": [
+        [
+          {
+            "node": "Resend Branded Email",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Resend Branded Email": {
+      "main": [
+        [
+          {
+            "node": "Alert Beto on WhatsApp",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Alert Beto on WhatsApp": {
+      "main": [
+        [
+          {
+            "node": "Mark Notified in DB",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": true,
+  "settings": {},
+  "id": "bfo-webhook-router-workflow"
+}
