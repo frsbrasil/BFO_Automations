@@ -115,58 +115,52 @@ graph TD
 
 ---
 
-## 🗄️ PART 3: The Supabase Operational Database Schema
-*Designed by the Data Squad*
+## 🗄️ PART 3: The Supabase Master Database Schema
+*Designed by the Data Squad (Adopted from Master Schema)*
 
-To support all automation flows with bulletproof data integrity, we establish three clean tables inside your Supabase instance: `leads`, `invoices`, and `audit_logs`.
+The new launch database `czuioghdmovaafzycjjy` is successfully provisioned with a highly comprehensive, enterprise-grade schema that supports all operational workflows out-of-the-box. RLS is enabled on all tables for absolute client data privacy.
 
 ### 1. The `leads` Table
-Stores contact and service details for customer analytics and easy follow-ups.
+Acts as the central entry point for all website submissions and scraper discoveries. It holds crucial automation flags:
+*   `id` (UUID Primary Key) & `created_at` (timestamptz)
+*   `name`, `phone`, `email` (Client contact details)
+*   `postcode`, `town`, `language` (Bilingual EN/PT routing variables)
+*   `service_raw` (String inputted from Vite form) & `message` (Client message text)
+*   `status` (Tracks status: default `'new'::text`)
+*   `source` (Default `'website'::text`, tracks if lead came from web, manual, or social scrapers)
+*   `beto_notified` (Boolean flag — tracks if the **2-Second WhatsApp Secretary** successfully alerted Beto's mobile phone)
+*   `ai_handled` & `ai_quote_sent` (Boolean flags for advanced automated AI conversation routing)
 
-```sql
-CREATE TABLE public.leads (
-    id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
-    name VARCHAR(255) NOT NULL,
-    email VARCHAR(255) NOT NULL,
-    phone VARCHAR(50),
-    service_type VARCHAR(100),
-    message TEXT,
-    language VARCHAR(10) DEFAULT 'en', -- 'en' or 'pt'
-    source VARCHAR(100) DEFAULT 'website', -- 'website', 'facebook', 'manual'
-    status VARCHAR(50) DEFAULT 'new', -- 'new', 'contacted', 'quoted', 'completed', 'lost'
-    created_at TIMESTAMP WITH TIME ZONE DEFAULT timezone('utc'::text, now()) NOT NULL
-);
-```
+### 2. The `customers` Table
+Tracks long-term customer profiles and CRM metrics:
+*   `id` (UUID Primary Key) & `created_at` (timestamptz)
+*   `name`, `phone`, `email`, `address`, `postcode`, `town`, `language`
+*   `type` (e.g. `'homeowner'::text`) & `notes` (Long-term client notes)
+*   `total_jobs` (Integer tracking client lifetime value) & `last_contact` (timestamptz)
 
-### 2. The `invoices` Table
-Logs financial records and links to generated billing PDFs.
+### 3. The `services` Table
+Stores operational catalog data (English and Portuguese descriptions, baseline price ranges, and durations):
+*   `id` (UUID Primary Key) & `created_at` (timestamptz)
+*   `slug` (Unique identifier, e.g. `'home-painting'`) & `category`
+*   `name_en`, `name_pt`, `desc_en`, `desc_pt`
+*   `min_price`, `typical_price`, `max_price` (Used by the **Invoice Hub** for automated quote estimation)
+*   `min_hours`, `max_hours`, `active`, `sort_order`
 
-```sql
-CREATE TABLE public.invoices (
-    id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
-    lead_id UUID REFERENCES public.leads(id) ON DELETE SET NULL,
-    invoice_number VARCHAR(100) UNIQUE NOT NULL,
-    amount NUMERIC(10, 2) NOT NULL,
-    status VARCHAR(50) DEFAULT 'unpaid', -- 'unpaid', 'paid', 'overdue', 'cancelled'
-    pdf_url TEXT, -- Link to Supabase Storage PDF
-    issued_date DATE DEFAULT CURRENT_DATE NOT NULL,
-    due_date DATE NOT NULL,
-    created_at TIMESTAMP WITH TIME ZONE DEFAULT timezone('utc'::text, now()) NOT NULL
-);
-```
+### 4. The `quotes` Table
+Generates and tracks pricing estimations:
+*   `id` (UUID Primary Key) & `created_at` (timestamptz)
+*   `lead_id` (FKey to `leads.id`), `customer_id` (FKey to `customers.id`), `service_id` (FKey to `services.id`)
+*   `description`, `labour_min`, `labour_max`, `materials_est`, `total_min`, `total_max`
+*   `status` (e.g., `'draft'`, `'sent'`, `'accepted'`) & `sent_via` (e.g., `'email'`, `'whatsapp'`)
 
-### 3. The `audit_logs` Table
-A highly critical log table tracking every webhook, message sent, and API error. If Z-API, Resend, or Google API fails, the Data Chief can diagnose the issue instantly.
-
-```sql
-CREATE TABLE public.audit_logs (
-    id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
-    event_type VARCHAR(100) NOT NULL, -- 'webhook_received', 'wa_sent', 'email_failed', 'pdf_created'
-    payload JSONB, -- Full API response or error traceback
-    status VARCHAR(50) NOT NULL, -- 'success', 'error', 'pending'
-    created_at TIMESTAMP WITH TIME ZONE DEFAULT timezone('utc'::text, now()) NOT NULL
-);
-```
+### 5. The `jobs` Table
+Coordinates active project scheduling and execution tracking on-site:
+*   `id` (UUID Primary Key) & `created_at` (timestamptz)
+*   `lead_id`, `quote_id`, `customer_id`, `service_id` (Full relational mapping)
+*   `description`, `address`, `postcode`, `scheduled_date`, `scheduled_time`, `estimated_days`
+*   `status` (e.g. `'scheduled'`, `'started'`, `'completed'`)
+*   `invoice_amount`, `invoiced_at`, `paid_at`, `payment_method`, `notes`
+*   `photos_before` & `photos_after` (Text arrays logging on-site progress directly from Beto's phone)
 
 ---
 
