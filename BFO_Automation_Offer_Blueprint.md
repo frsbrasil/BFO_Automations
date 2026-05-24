@@ -99,6 +99,20 @@ graph TD
        *   *"💡 **Scout Alert!** User '{User}' just posted in Facebook Group: 'Need a reliable painter in Soham to redo my trim.' Click to view post and reply: {Post_URL}"*
     5. This positions Beto to be the **first contractor** to pitch, securing high-ticket jobs before competitors even see the request.
 
+### 5. Module E: The Google Sheets 2-Way CRM Sync (Frictionless Mobile Management)
+*   **How it works**:
+    1. Every time a new lead is logged in Supabase, n8n automatically formats a row and appends it to a centralized Google Sheet dashboard inside Beto's Google Workspace.
+    2. The sheet is formatted with dropdown statuses (`New`, `Contacted`, `Quoted`, `Completed`, `Lost`) and an `Internal Notes` column.
+    3. Beto can update statuses or add notes on his phone while on-site. n8n triggers on sheet changes and synchronizes the updates directly back to the Supabase database.
+    4. Provides a zero-learning-curve, high-speed mobile interface for Beto.
+
+### 6. Module F: The Premium React Vite Admin Portal (Subdomain Portal)
+*   **How it works**:
+    1. We scaffold a highly aesthetic, responsive Single Page Application (SPA) built using React, Tailwind CSS, Lucide icons, and the Supabase Client SDK inside `BFO_Automations/bfo-dashboard/`.
+    2. The portal is protected behind **Supabase Magic Link / OTP Email Authentication** (no passwords to remember, extremely secure).
+    3. Beto and you can view business-critical metrics (leads count, outstanding invoices, financial conversion charts), manage leads inside a custom Kanban board, trigger invoice PDFs, and audit the system health through visual operational logs.
+    4. **Replicability**: The portal connects directly to Supabase with zero custom backend servers. Cloning it for other trade clients requires changing just the Supabase URL and key inside a `.env` file and deploying to Netlify for free.
+
 ---
 
 ## 🗄️ PART 3: The Supabase Operational Database Schema
@@ -159,23 +173,26 @@ CREATE TABLE public.audit_logs (
 ## 🚀 PART 4: Phase-by-Phase Execution Roadmap
 
 ```text
- PHASE 1: DB & LOGS SCAFFOLD
- └── Run SQL migrations in Supabase to create leads, invoices, and audit_logs tables.
- └── Create the "invoices" storage bucket with read-only public access.
+ PHASE 1: DB & LOGS SCAFFOLD (COMPLETED)
+ ├── [x] Run SQL migrations in Supabase to create bfo_leads, bfo_invoices, and bfo_audit_logs tables with RLS enabled.
+ ├── [x] Rename schema column service_type to service_raw to match Vite frontend.
+ └── [x] Update frontend code (src/lib/supabase.ts) to direct form submissions to bfo_leads.
 
- PHASE 2: THE 2-SECOND WHATSAPP SECRETARY & RESEND FLOWS
- └── Configure the self-hosted n8n webhook receiver.
- └── Establish language-routing blocks (regex check for EN/PT).
- └── Integrate Z-API credentials inside credentials/ folder.
- └── Develop beautifully formatted Resend HTML email layouts.
+ PHASE 2: n8n 2-WAY GOOGLE SHEETS & WHATSAPP SECRETARY TRIGGERS (IN PROGRESS)
+ ├── [ ] Set up the master Google Sheet template inside Google Workspace.
+ ├── [ ] Configure self-hosted n8n webhook triggers and bilingual message-routing scripts.
+ ├── [ ] Implement 2-way sync: (Supabase -> Google Sheets) and (Google Sheets edits -> Supabase).
+ ├── [ ] Integrate Z-API credentials inside credentials/ folder.
+ ├── [ ] Develop beautifully formatted Resend HTML email templates.
+ └── [ ] Export finalized n8n workflows as JSON files to BFO_Automations/n8n_workflows/.
 
- PHASE 3: ONE-CLICK INVOICING ENGINE
- └── Configure Google Drive & Docs API credentials in n8n.
- └── Design the BFO Invoice Google Doc Template with proper headers.
- └── Construct the n8n conversion pipeline (Doc -> PDF -> Supabase Bucket -> Customer).
+ PHASE 3: REPLICABLE REACT VITE ADMIN PORTAL
+ ├── [ ] Scaffold a lightweight React + Tailwind Vite SPA in BFO_Automations/bfo-dashboard/.
+ ├── [ ] Integrate Supabase JS SDK client with magic link OTP email login.
+ ├── [ ] Build dashboard analytics cards, Pipeline Kanban Board, and audit log viewer.
+ └── [ ] Deploy CRM portal to production (e.g. portal.bfopropertymaintenance.co.uk) on Netlify.
 
- PHASE 4: APIFY SOCIAL SCOUT SETUP
- └── Authenticate Apify using Global API tokens inside BFO_Automations.
- └── Set up the Facebook/Google Maps scraper actors.
- └── Implement the n8n cron poll scheduler to trigger alerts on Beto's phone.
+ PHASE 4: ONE-CLICK PDF INVOICING & APIFY SCOUT
+ ├── [ ] Configure Google Doc quote/invoice template and n8n PDF export webhook.
+ └── [ ] Authenticate Apify and set up cron schedulers for automated local lead scraping.
 ```
